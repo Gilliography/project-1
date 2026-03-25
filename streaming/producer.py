@@ -1,44 +1,22 @@
-version: '3.8'
+from kafka import KafkaProducer
+import json
+import time
+import random
+from datetime import datetime
 
-services:
-  kafka:
-    image: bitnami/kafka:latest
-    container_name: kafka
-    ports:
-      - "9092:9092"
-    environment:
-      - KAFKA_CFG_NODE_ID=1
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
-      - ALLOW_PLAINTEXT_LISTENER=yes
+producer = KafkaProducer(
+    bootstrap_servers='localhost:9092',
+    value_serializer=lambda v: json.dumps(v).encode('utf-8')
+)
 
-  postgres:
-    image: postgres:13
-    container_name: postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: rides
-    ports:
-      - "5432:5432"
+while True:
+    data = {
+        "ride_id": random.randint(1, 10000),
+        "distance": round(random.uniform(1, 20), 2),
+        "fare": round(random.uniform(5, 50), 2),
+        "timestamp": datetime.utcnow().isoformat()
+    }
 
-  minio:
-    image: minio/minio
-    container_name: minio
-    command: server /data --console-address ":9001"
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-
-  airflow:
-    image: apache/airflow:2.8.1
-    container_name: airflow
-    ports:
-      - "8080:8080"
-    environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-    command: standalone
+    producer.send("rides", data)
+    print("Sent:", data)
+    time.sleep(2)
